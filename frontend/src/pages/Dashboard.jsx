@@ -1,0 +1,244 @@
+import { useEffect, useState } from "react";
+import { createNeed, deleteNeed, getOrganizations, updateNeed } from "../api.js";
+import UrgencyBadge from "../components/UrgencyBadge.jsx";
+
+const CATEGORIES = [
+  "clothing",
+  "education",
+  "school_supplies",
+  "food",
+  "hygiene",
+  "toys",
+  "household",
+  "shoes",
+  "blankets",
+  "other",
+];
+
+const emptyForm = {
+  item_name: "",
+  category: "clothing",
+  quantity_needed: 10,
+  quantity_received: 0,
+  urgency: "medium",
+  description: "",
+};
+
+export default function Dashboard() {
+  const [orgs, setOrgs] = useState([]);
+  const [orgId, setOrgId] = useState("");
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
+
+  const org = orgs.find((item) => String(item.id) === String(orgId));
+
+  async function refresh(selectedId) {
+    const data = await getOrganizations();
+    setOrgs(data);
+    setOrgId(selectedId || (data[0] && data[0].id) || "");
+  }
+
+  useEffect(() => {
+    refresh().catch((err) => setError(err.message));
+  }, []);
+
+  function onChange(event) {
+    const { name, value } = event.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: name.includes("quantity") ? Number(value) : value,
+    }));
+  }
+
+  async function onSubmit(event) {
+    event.preventDefault();
+    setError("");
+    try {
+      if (editingId) {
+        await updateNeed(editingId, form);
+      } else {
+        await createNeed(orgId, form);
+      }
+      setForm(emptyForm);
+      setEditingId(null);
+      await refresh(orgId);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function onDelete(id) {
+    await deleteNeed(id);
+    await refresh(orgId);
+  }
+
+  function onEdit(need) {
+    setEditingId(need.id);
+    setForm({
+      item_name: need.item_name,
+      category: need.category,
+      quantity_needed: need.quantity_needed,
+      quantity_received: need.quantity_received,
+      urgency: need.urgency,
+      description: need.description || "",
+    });
+  }
+
+  return (
+    <div className="mx-auto max-w-5xl px-5 py-12">
+      <h1 className="text-3xl font-extrabold">Organization dashboard</h1>
+      <p className="mt-2 text-ink/65">
+        Update live needs so donors can be matched to what you actually require right now.
+        No login in this MVP — pick your organization from the list.
+      </p>
+
+      <label className="mt-6 block text-sm font-semibold">Organization</label>
+      <select
+        value={orgId}
+        onChange={(e) => {
+          setOrgId(e.target.value);
+          setEditingId(null);
+          setForm(emptyForm);
+        }}
+        className="mt-2 w-full max-w-md rounded-lg border border-ink/10 bg-white px-3 py-2"
+      >
+        {orgs.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name} — {item.location}
+          </option>
+        ))}
+      </select>
+
+      {error ? <p className="mt-4 text-sm text-coral">{error}</p> : null}
+
+      <div className="mt-8 overflow-x-auto card">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead className="border-b border-black/5 text-ink/50">
+            <tr>
+              <th className="px-4 py-3 font-medium">Item</th>
+              <th className="px-4 py-3 font-medium">Needed</th>
+              <th className="px-4 py-3 font-medium">Received</th>
+              <th className="px-4 py-3 font-medium">Remaining</th>
+              <th className="px-4 py-3 font-medium">Urgency</th>
+              <th className="px-4 py-3 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {(org?.needs || []).map((need) => (
+              <tr key={need.id} className="border-b border-black/5 last:border-0">
+                <td className="px-4 py-3 font-medium">{need.item_name}</td>
+                <td className="px-4 py-3">{need.quantity_needed}</td>
+                <td className="px-4 py-3">{need.quantity_received}</td>
+                <td className="px-4 py-3 font-semibold">{need.remaining}</td>
+                <td className="px-4 py-3">
+                  <UrgencyBadge urgency={need.urgency} />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button className="mr-3 text-teal" onClick={() => onEdit(need)}>
+                    Edit
+                  </button>
+                  <button className="text-coral" onClick={() => onDelete(need.id)}>
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <form onSubmit={onSubmit} className="card mt-8 grid gap-4 p-6 md:grid-cols-2">
+        <h2 className="md:col-span-2 text-lg font-bold">
+          {editingId ? "Edit need" : "Add a need"}
+        </h2>
+        <label className="text-sm">
+          Item name
+          <input
+            required
+            name="item_name"
+            value={form.item_name}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          Category
+          <select
+            name="category"
+            value={form.category}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat.replace("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Quantity needed
+          <input
+            type="number"
+            min="0"
+            name="quantity_needed"
+            value={form.quantity_needed}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          Quantity received
+          <input
+            type="number"
+            min="0"
+            name="quantity_received"
+            value={form.quantity_received}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          />
+        </label>
+        <label className="text-sm">
+          Urgency
+          <select
+            name="urgency"
+            value={form.urgency}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          >
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <label className="text-sm md:col-span-2">
+          Description
+          <input
+            name="description"
+            value={form.description}
+            onChange={onChange}
+            className="mt-1 w-full rounded-lg border border-ink/10 px-3 py-2"
+          />
+        </label>
+        <div className="md:col-span-2 flex gap-3">
+          <button type="submit" className="rounded-lg bg-teal px-5 py-2.5 font-semibold text-white">
+            {editingId ? "Save changes" : "Add need"}
+          </button>
+          {editingId ? (
+            <button
+              type="button"
+              className="rounded-lg px-5 py-2.5"
+              onClick={() => {
+                setEditingId(null);
+                setForm(emptyForm);
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      </form>
+    </div>
+  );
+}

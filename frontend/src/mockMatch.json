@@ -1,0 +1,37 @@
+{
+  "donation": {
+    "id": 1,
+    "description": "I have 20 children's shirts, 10 middle-school textbooks, and 15 notebooks.",
+    "location": "Mandalay"
+  },
+  "items": [
+    { "item_name": "children's shirts", "category": "clothing", "quantity": 20 },
+    { "item_name": "middle-school textbooks", "category": "education", "quantity": 10 },
+    { "item_name": "notebooks", "category": "school_supplies", "quantity": 15 }
+  ],
+  "matches": [
+    {
+      "organization": {
+        "id": 1,
+        "name": "Bright Future Center",
+        "location": "Mandalay",
+        "contact_email": "hello@brightfuture.mm",
+        "description": "A Mandalay learning hub supporting children with clothing and educational materials."
+      },
+      "score": 94,
+      "reason": "Bright Future Center is your strongest match because they currently have a high-priority need for children's clothing and middle-school educational materials. Your donation closely matches their current needs and the organization is located nearby.",
+      "breakdown": { "item": 0.96, "urgency": 1, "location": 1, "quantity": 0.9 },
+      "highest_urgency": "high",
+      "item_matches": [
+        { "item_name": "children's shirts", "status": "strong", "need_name": "Children's clothing" },
+        { "item_name": "middle-school textbooks", "status": "strong", "need_name": "Middle-school textbooks" },
+        { "item_name": "notebooks", "status": "strong", "need_name": "Notebooks" }
+      ],
+      "impact": [
+        { "label": "students receive clothing", "count": 20 },
+        { "label": "students receive textbooks", "count": 10 },
+        { "label": "students receive notebooks", "count": 15 }
+      ]
+    }
+  ]
+}

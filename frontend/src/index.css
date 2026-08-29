@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-cream text-ink antialiased;
+}
+
+.card {
+  @apply rounded-lg bg-white shadow-card;
+}
