@@ -47,9 +47,16 @@ Open [http://localhost:5173](http://localhost:5173).
 
 Accounts use JWT. One user can be both a donor and a receiver. Receivers build a single organization profile at `/organization/setup`. Guest donate still works; signed-in donations appear on `/profile`.
 
-## Deploy (Render + Netlify)
+## Live URLs
 
-Push this repo to GitHub first. You will deploy the API on Render and the React app on Netlify, then point each at the other.
+- Frontend: [https://spiffy-gingersnap-8d4ab2.netlify.app](https://spiffy-gingersnap-8d4ab2.netlify.app)
+- Backend: [https://back-production-e26b.up.railway.app](https://back-production-e26b.up.railway.app)
+
+Netlify builds with `VITE_API_URL=https://back-production-e26b.up.railway.app` (see [netlify.toml](netlify.toml)). Railway allows that Netlify origin in CORS.
+
+## Deploy (Railway + Netlify)
+
+Push this repo to GitHub first. Deploy the API on Railway and the React app on Netlify, then point each at the other.
 
 ### 1. Backend on Render
 
