@@ -21,6 +21,16 @@ URGENCY_CHOICES = [
     ("low", "Low"),
 ]
 
+MATCH_STATUSES = [
+    ("suggested", "Suggested"),
+    ("pledged", "Pledged"),
+    ("accepted", "Accepted"),
+    ("declined", "Declined"),
+    ("delivered", "Delivered"),
+]
+
+DONATION_STATUSES = MATCH_STATUSES
+
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
