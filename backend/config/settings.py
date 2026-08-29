@@ -9,7 +9,13 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hackathon-impactmatch-secret-key-32b")
 DEBUG = os.getenv("DEBUG", "True").lower() != "false"
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
+if DEBUG and "*" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.extend(["localhost", "127.0.0.1"])
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
@@ -30,6 +36,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -70,15 +77,40 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = [
+_local_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+_extra_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+CORS_ALLOWED_ORIGINS = _local_origins + _extra_origins
+CORS_ALLOW_ALL_ORIGINS = DEBUG and not _extra_origins
+
+_csrf = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+_render_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+if _render_url:
+    _csrf.append(_render_url)
+CSRF_TRUSTED_ORIGINS = _csrf or _local_origins
+
+SERVE_MEDIA = DEBUG or os.getenv("SERVE_MEDIA", "True").lower() == "true"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

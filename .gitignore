@@ -6,6 +6,7 @@ __pycache__/
 *.sqlite3
 backend/.env
 backend/media/
+backend/staticfiles/
 *.log
 
 # Node
