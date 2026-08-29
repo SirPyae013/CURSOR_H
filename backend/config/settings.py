@@ -9,11 +9,18 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hackathon-impactmatch-secret-key-32b")
 DEBUG = os.getenv("DEBUG", "True").lower() != "false"
+
+NETLIFY_ORIGIN = "https://spiffy-gingersnap-8d4ab2.netlify.app"
+RAILWAY_HOST = "back-production-e26b.up.railway.app"
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+for host in (RAILWAY_HOST, ".up.railway.app", ".railway.app", ".onrender.com"):
+    if host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 if DEBUG and "*" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.extend(["localhost", "127.0.0.1"])
 
@@ -91,23 +98,38 @@ _local_origins = [
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+    NETLIFY_ORIGIN,
 ]
 _extra_origins = [
     origin.strip()
     for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
 ]
-CORS_ALLOWED_ORIGINS = _local_origins + _extra_origins
-CORS_ALLOW_ALL_ORIGINS = DEBUG and not _extra_origins
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_local_origins + _extra_origins))
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.netlify\.app$",
+    r"^https://.*\.up\.railway\.app$",
+]
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "").lower() == "true" or (
+    DEBUG and not _extra_origins
+)
+CORS_ALLOW_CREDENTIALS = True
 
 _csrf = [
     origin.strip()
     for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
-_render_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
-if _render_url:
-    _csrf.append(_render_url)
+for origin in (
+    NETLIFY_ORIGIN,
+    f"https://{RAILWAY_HOST}",
+    os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/"),
+    os.getenv("RAILWAY_PUBLIC_DOMAIN", ""),
+):
+    if origin:
+        url = origin if origin.startswith("http") else f"https://{origin}"
+        if url not in _csrf:
+            _csrf.append(url)
 CSRF_TRUSTED_ORIGINS = _csrf or _local_origins
 
 SERVE_MEDIA = DEBUG or os.getenv("SERVE_MEDIA", "True").lower() == "true"

@@ -19,6 +19,6 @@ services:
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: "https://spiffy-gingersnap-8d4ab2.netlify.app"
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: "https://spiffy-gingersnap-8d4ab2.netlify.app,https://back-production-e26b.up.railway.app"

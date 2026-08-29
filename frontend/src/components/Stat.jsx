@@ -25,9 +25,6 @@ const icons = {
 };
 
 export default function Stat({ value, label, detail, icon = "gift", to }) {
-  // #region agent log
-  fetch('http://127.0.0.1:7393/ingest/f8ef1ea3-d3d8-40b6-b1b6-f8e700f400a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ade5c2'},body:JSON.stringify({sessionId:'ade5c2',runId:'pre-fix',hypothesisId:'B',location:'Stat.jsx:render',message:'stat render',data:{value,label,icon,iconOk:Boolean(icons[icon]),to:to||null,valueType:typeof value},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   const content = (
     <>
       <div className="grid h-10 w-10 place-items-center rounded-lg bg-teal-light text-teal">

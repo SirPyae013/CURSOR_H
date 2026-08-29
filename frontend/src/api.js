@@ -1,4 +1,18 @@
-const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+function resolveApiBase() {
+  const isProd = import.meta.env.PROD;
+  let raw = (import.meta.env.VITE_API_URL || "").trim();
+  if (!raw) {
+    raw = isProd
+      ? "https://back-production-e26b.up.railway.app"
+      : "http://127.0.0.1:8000";
+  }
+  if (!/^https?:\/\//i.test(raw)) {
+    raw = `https://${raw}`;
+  }
+  return raw.replace(/\/$/, "").replace(/\/api$/i, "");
+}
+
+const API = resolveApiBase();
 
 const ACCESS_KEY = "im_access";
 const REFRESH_KEY = "im_refresh";

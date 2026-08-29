@@ -7,23 +7,11 @@ import Stat from "../components/Stat.jsx";
 export default function Home() {
   const { hasOrganization } = useAuth();
   const [stats, setStats] = useState({ donations: 12, organizations: 4, needs: 18 });
-  // #region agent log
-  fetch('http://127.0.0.1:7393/ingest/f8ef1ea3-d3d8-40b6-b1b6-f8e700f400a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ade5c2'},body:JSON.stringify({sessionId:'ade5c2',runId:'pre-fix',hypothesisId:'C',location:'Home.jsx:render',message:'home render',data:{hasOrganization:Boolean(hasOrganization),stats},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
 
   useEffect(() => {
     getStats()
-      .then((data) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7393/ingest/f8ef1ea3-d3d8-40b6-b1b6-f8e700f400a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ade5c2'},body:JSON.stringify({sessionId:'ade5c2',runId:'pre-fix',hypothesisId:'A',location:'Home.jsx:getStats.then',message:'stats fetch ok',data:{keys:data&&Object.keys(data),donations:data?.donations,organizations:data?.organizations,needs:data?.needs,api:import.meta.env.VITE_API_URL||'default-8000'},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        setStats(data);
-      })
-      .catch((err) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7393/ingest/f8ef1ea3-d3d8-40b6-b1b6-f8e700f400a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ade5c2'},body:JSON.stringify({sessionId:'ade5c2',runId:'pre-fix',hypothesisId:'A',location:'Home.jsx:getStats.catch',message:'stats fetch failed',data:{error:String(err?.message||err),status:err?.status||null},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-      });
+      .then(setStats)
+      .catch(() => {});
   }, []);
 
   return (
