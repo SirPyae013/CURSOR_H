@@ -3,7 +3,7 @@ function resolveApiBase() {
   let raw = (import.meta.env.VITE_API_URL || "").trim();
   if (!raw) {
     raw = isProd
-      ? "https://back-production-e26b.up.railway.app"
+      ? "https://impactbackend-production.up.railway.app"
       : "http://127.0.0.1:8000";
   }
   if (!/^https?:\/\//i.test(raw)) {

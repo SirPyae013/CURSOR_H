@@ -4,7 +4,7 @@
   publish = "dist"
 
 [build.environment]
-  VITE_API_URL = "https://back-production-e26b.up.railway.app"
+  VITE_API_URL = "https://impactbackend-production.up.railway.app"
 
 [[redirects]]
   from = "/*"

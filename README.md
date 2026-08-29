@@ -49,10 +49,10 @@ Accounts use JWT. One user can be both a donor and a receiver. Receivers build a
 
 ## Live URLs
 
-- Frontend: [https://spiffy-gingersnap-8d4ab2.netlify.app](https://spiffy-gingersnap-8d4ab2.netlify.app)
-- Backend: [https://back-production-e26b.up.railway.app](https://back-production-e26b.up.railway.app)
+- Frontend: [https://spiffy-gingersnap-8d4ab2.netlify.app](https://spiffy-gingersnap-8d4ab2.netlify.app) — this repo (`frontend/`) on Netlify
+- Backend: [https://impactbackend-production.up.railway.app](https://impactbackend-production.up.railway.app) — [Sanchez-313/impactBackend](https://github.com/Sanchez-313/impactBackend) on Railway
 
-Netlify builds with `VITE_API_URL=https://back-production-e26b.up.railway.app` (see [netlify.toml](netlify.toml)). Railway allows that Netlify origin in CORS.
+Netlify builds with `VITE_API_URL=https://impactbackend-production.up.railway.app` (see [netlify.toml](netlify.toml)). Railway allows that Netlify origin in CORS.
 
 ## Deploy (Railway + Netlify)
 

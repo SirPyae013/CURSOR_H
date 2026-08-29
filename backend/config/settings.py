@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "hackathon-impactmatch-secret-key-32
 DEBUG = os.getenv("DEBUG", "True").lower() != "false"
 
 NETLIFY_ORIGIN = "https://spiffy-gingersnap-8d4ab2.netlify.app"
-RAILWAY_HOST = "back-production-e26b.up.railway.app"
+RAILWAY_HOST = "impactbackend-production.up.railway.app"
 
 
 def _env_list(name, default=""):
