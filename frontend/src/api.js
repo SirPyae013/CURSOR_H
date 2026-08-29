@@ -121,11 +121,50 @@ export function getOrganization(id) {
   return request(`/api/organizations/${id}/`);
 }
 
-export function extractDonationItems(payload) {
-  return request("/api/donations/extract/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+function localExtract(description) {
+  const map = [
+    [["notebook", "notebooks", "pencil", "pencils", "stationery"], "school_supplies"],
+    [["textbook", "textbooks", "book", "books"], "education"],
+    [["shirt", "shirts", "clothes", "clothing", "uniform", "uniforms", "dress", "jacket"], "clothing"],
+    [["food", "rice", "meal", "meals"], "food"],
+    [["soap", "hygiene", "toothbrush"], "hygiene"],
+    [["toy", "toys"], "toys"],
+    [["blanket", "blankets"], "blankets"],
+    [["shoe", "shoes"], "shoes"],
+    [["household", "utensil"], "household"],
+  ];
+  const chunks = String(description || "").split(/,|\band\b/i);
+  const items = [];
+  for (const chunk of chunks) {
+    const text = chunk.trim();
+    if (!text) continue;
+    const qtyMatch = text.match(/(\d+)/);
+    const quantity = qtyMatch ? Number(qtyMatch[1]) : /several|some|few/i.test(text) ? 5 : 1;
+    const lowered = text.toLowerCase();
+    let category = "other";
+    for (const [keywords, cat] of map) {
+      if (keywords.some((word) => new RegExp(`\\b${word}\\b`).test(lowered))) {
+        category = cat;
+        break;
+      }
+    }
+    const name = text.replace(/^(i have|we have|donating)\s+/i, "").replace(/^\d+\s+/, "").trim();
+    if (name) items.push({ item_name: name, category, quantity, intended_users: "", condition: null });
+  }
+  return items.length ? items : [{ item_name: description.slice(0, 80), category: "other", quantity: 1, intended_users: "", condition: null }];
+}
+
+export async function extractDonationItems(payload) {
+  try {
+    return await request("/api/donations/extract/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    const description = payload?.description || "";
+    if (!description) throw err;
+    return { items: localExtract(description) };
+  }
 }
 
 export function analyzeDonation(payload) {

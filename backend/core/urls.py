@@ -44,6 +44,7 @@ urlpatterns = [
     path("organizations/<int:pk>/claim/", ClaimOrganizationView.as_view()),
     path("needs/<int:pk>/", NeedDetailView.as_view()),
     path("donations/extract/", ExtractDonationView.as_view()),
+    path("donations/extract", ExtractDonationView.as_view()),
     path("donations/analyze/", AnalyzeDonationView.as_view()),
     path("donations/mine/", MyDonationsView.as_view()),
     path("donations/<int:pk>/matches/", DonationMatchesView.as_view()),
