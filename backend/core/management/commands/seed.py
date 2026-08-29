@@ -1,6 +1,12 @@
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
 from core.models import Need, Organization
+
+User = get_user_model()
+
+DEMO_EMAIL = "hello@brightfuture.mm"
+DEMO_PASSWORD = "demo1234"
 
 ORGS = [
     {
@@ -165,4 +171,30 @@ class Command(BaseCommand):
                 Need.objects.create(organization=org, **need)
             payload["needs"] = needs
             self.stdout.write(self.style.SUCCESS(f"Seeded {org.name}"))
+
+        demo = User.objects.filter(email=DEMO_EMAIL).first()
+        if demo is None:
+            demo = User.objects.create_user(
+                email=DEMO_EMAIL,
+                password=DEMO_PASSWORD,
+                first_name="Bright",
+                last_name="Future",
+                location="Mandalay",
+                is_donor=True,
+                is_receiver=True,
+            )
+        else:
+            demo.is_donor = True
+            demo.is_receiver = True
+            demo.set_password(DEMO_PASSWORD)
+            demo.save()
+
+        bright = Organization.objects.get(name="Bright Future Center")
+        if bright.owner_id != demo.id:
+            bright.owner = demo
+            bright.save(update_fields=["owner"])
+
+        self.stdout.write(
+            self.style.SUCCESS(f"Demo receiver: {DEMO_EMAIL} / {DEMO_PASSWORD}")
+        )
         self.stdout.write(self.style.SUCCESS("Done."))

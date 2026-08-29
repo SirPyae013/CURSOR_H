@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
 CATEGORIES = [
@@ -20,7 +22,79 @@ URGENCY_CHOICES = [
 ]
 
 
+class UserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def _create_user(self, email, password, **extra):
+        if not email:
+            raise ValueError("Email is required")
+        email = self.normalize_email(email)
+        extra.setdefault("username", email)
+        user = self.model(email=email, **extra)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email, password=None, **extra):
+        extra.setdefault("is_staff", False)
+        extra.setdefault("is_superuser", False)
+        return self._create_user(email, password, **extra)
+
+    def create_superuser(self, email, password=None, **extra):
+        extra.setdefault("is_staff", True)
+        extra.setdefault("is_superuser", True)
+        if extra.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        return self._create_user(email, password, **extra)
+
+
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
+    location = models.CharField(max_length=100, blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    is_donor = models.BooleanField(default=True)
+    is_receiver = models.BooleanField(default=False)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
+
+    def __str__(self):
+        return self.email
+
+    @property
+    def roles(self):
+        values = []
+        if self.is_donor:
+            values.append("donor")
+        if self.is_receiver:
+            values.append("receiver")
+        return values
+
+    @property
+    def display_name(self):
+        full = self.get_full_name().strip()
+        return full or self.email
+
+    @property
+    def owned_organization(self):
+        try:
+            return self.organization
+        except Organization.DoesNotExist:
+            return None
+
+
 class Organization(models.Model):
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        related_name="organization",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=200)
     description = models.TextField()
     location = models.CharField(max_length=100)
@@ -52,6 +126,13 @@ class Need(models.Model):
 
 
 class Donation(models.Model):
+    donor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="donations",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     description = models.TextField()
     location = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)

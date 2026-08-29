@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { analyzeDonation } from "../api.js";
+import { useAuth } from "../AuthContext.jsx";
 import AnalyzeOverlay from "../components/AnalyzeOverlay.jsx";
 
 const DEMO =
@@ -9,8 +10,9 @@ const CITIES = ["Mandalay", "Yangon", "Naypyidaw"];
 
 export default function Donate() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [description, setDescription] = useState(DEMO);
-  const [location, setLocation] = useState("Mandalay");
+  const [location, setLocation] = useState(user?.location || "Mandalay");
   const [error, setError] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
@@ -48,6 +50,18 @@ export default function Donate() {
       <p className="mt-2 text-ink/65">
         Write it the way you would tell a friend. We’ll extract the items and find the
         strongest organizational matches.
+        {isAuthenticated ? (
+          <span> This donation will be saved to your profile.</span>
+        ) : (
+          <span>
+            {" "}
+            Guests can donate.{" "}
+            <Link to="/login" state={{ next: "/donate" }} className="font-semibold text-teal">
+              Sign in
+            </Link>{" "}
+            to keep a history.
+          </span>
+        )}
       </p>
       <form onSubmit={onSubmit} className="card mt-8 p-6 md:p-8">
         <label className="text-sm font-semibold">Donation description</label>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { createNeed, deleteNeed, getOrganizations, updateNeed } from "../api.js";
+import { Link, useNavigate } from "react-router-dom";
+import { createNeed, deleteNeed, getMyOrganization, updateNeed } from "../api.js";
+import { useAuth } from "../AuthContext.jsx";
 import UrgencyBadge from "../components/UrgencyBadge.jsx";
 
 const CATEGORIES = [
@@ -25,23 +27,32 @@ const emptyForm = {
 };
 
 export default function Dashboard() {
-  const [orgs, setOrgs] = useState([]);
-  const [orgId, setOrgId] = useState("");
+  const { isReceiver, hasOrganization, refreshMe } = useAuth();
+  const navigate = useNavigate();
+  const [org, setOrg] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
 
-  const org = orgs.find((item) => String(item.id) === String(orgId));
-
-  async function refresh(selectedId) {
-    const data = await getOrganizations();
-    setOrgs(data);
-    setOrgId(selectedId || (data[0] && data[0].id) || "");
+  async function refresh() {
+    const data = await getMyOrganization();
+    setOrg(data);
+    await refreshMe();
   }
 
   useEffect(() => {
-    refresh().catch((err) => setError(err.message));
-  }, []);
+    if (!isReceiver || !hasOrganization) {
+      navigate("/organization/setup", { replace: true });
+      return;
+    }
+    refresh().catch((err) => {
+      if (err.status === 404) {
+        navigate("/organization/setup", { replace: true });
+        return;
+      }
+      setError(err.message);
+    });
+  }, [isReceiver, hasOrganization, navigate]);
 
   function onChange(event) {
     const { name, value } = event.target;
@@ -58,11 +69,11 @@ export default function Dashboard() {
       if (editingId) {
         await updateNeed(editingId, form);
       } else {
-        await createNeed(orgId, form);
+        await createNeed(org.id, form);
       }
       setForm(emptyForm);
       setEditingId(null);
-      await refresh(orgId);
+      await refresh();
     } catch (err) {
       setError(err.message);
     }
@@ -70,7 +81,7 @@ export default function Dashboard() {
 
   async function onDelete(id) {
     await deleteNeed(id);
-    await refresh(orgId);
+    await refresh();
   }
 
   function onEdit(need) {
@@ -85,30 +96,24 @@ export default function Dashboard() {
     });
   }
 
+  if (!org) {
+    return <p className="mx-auto max-w-5xl px-5 py-16 text-ink/50">Loading dashboard…</p>;
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-5 py-12">
       <h1 className="text-3xl font-extrabold">Organization dashboard</h1>
       <p className="mt-2 text-ink/65">
-        Update live needs so donors can be matched to what you actually require right now.
-        No login in this MVP — pick your organization from the list.
+        Update live needs so donors can be matched to what {org.name} actually requires right now.
       </p>
-
-      <label className="mt-6 block text-sm font-semibold">Organization</label>
-      <select
-        value={orgId}
-        onChange={(e) => {
-          setOrgId(e.target.value);
-          setEditingId(null);
-          setForm(emptyForm);
-        }}
-        className="mt-2 w-full max-w-md rounded-lg border border-ink/10 bg-white px-3 py-2"
-      >
-        {orgs.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name} — {item.location}
-          </option>
-        ))}
-      </select>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold">
+          {org.name} — {org.location}
+        </p>
+        <Link to="/organization/setup" className="text-sm font-semibold text-teal">
+          Edit profile
+        </Link>
+      </div>
 
       {error ? <p className="mt-4 text-sm text-coral">{error}</p> : null}
 
@@ -125,7 +130,7 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {(org?.needs || []).map((need) => (
+            {(org.needs || []).map((need) => (
               <tr key={need.id} className="border-b border-black/5 last:border-0">
                 <td className="px-4 py-3 font-medium">{need.item_name}</td>
                 <td className="px-4 py-3">{need.quantity_needed}</td>

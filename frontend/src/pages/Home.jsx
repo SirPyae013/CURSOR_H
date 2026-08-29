@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStats } from "../api.js";
+import { useAuth } from "../AuthContext.jsx";
 import Stat from "../components/Stat.jsx";
 
 export default function Home() {
+  const { hasOrganization } = useAuth();
   const [stats, setStats] = useState({ donations: 12, organizations: 4, needs: 18 });
 
   useEffect(() => {
@@ -31,7 +33,10 @@ export default function Home() {
           <Link to="/organizations" className="rounded-lg border border-ink/10 bg-white px-6 py-3 font-semibold hover:border-teal">
             Find organizations
           </Link>
-          <Link to="/dashboard" className="rounded-lg px-6 py-3 font-semibold text-teal hover:underline">
+          <Link
+            to={hasOrganization ? "/dashboard" : "/organization/setup"}
+            className="rounded-lg px-6 py-3 font-semibold text-teal hover:underline"
+          >
             For organizations
           </Link>
         </div>

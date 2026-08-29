@@ -43,4 +43,6 @@ Open [http://localhost:5173](http://localhost:5173).
 2. Description is prefilled: *I have 20 children's shirts, 10 middle-school textbooks, and 15 notebooks.* City: Mandalay
 3. Find my best match → Bright Future Center should rank first
 4. Open organization → Contact
-5. Dashboard → Bright Future Center shows School Uniforms 50 / 15 / 35 HIGH
+5. Sign in as `hello@brightfuture.mm` / `demo1234` → Dashboard shows School Uniforms 50 / 15 / 35 HIGH
+
+Accounts use JWT. One user can be both a donor and a receiver. Receivers build a single organization profile at `/organization/setup`. Guest donate still works; signed-in donations appear on `/profile`.
