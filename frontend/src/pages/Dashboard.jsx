@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createNeed, deleteNeed, getMyOrganization, updateNeed } from "../api.js";
+import {
+  acceptMatch,
+  createNeed,
+  declineMatch,
+  deleteNeed,
+  deliverMatch,
+  getInboxMatches,
+  getMyOrganization,
+  updateNeed,
+} from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
 import UrgencyBadge from "../components/UrgencyBadge.jsx";
 
@@ -30,13 +39,16 @@ export default function Dashboard() {
   const { isReceiver, hasOrganization, refreshMe } = useAuth();
   const navigate = useNavigate();
   const [org, setOrg] = useState(null);
+  const [inbox, setInbox] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
 
   async function refresh() {
-    const data = await getMyOrganization();
+    const [data, matches] = await Promise.all([getMyOrganization(), getInboxMatches().catch(() => [])]);
     setOrg(data);
+    setInbox(matches);
     await refreshMe();
   }
 
@@ -84,6 +96,21 @@ export default function Dashboard() {
     await refresh();
   }
 
+  async function onInboxAction(match, action) {
+    setError("");
+    setBusyId(match.id);
+    try {
+      if (action === "accept") await acceptMatch(match.id);
+      if (action === "decline") await declineMatch(match.id);
+      if (action === "deliver") await deliverMatch(match.id);
+      await refresh();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function onEdit(need) {
     setEditingId(need.id);
     setForm({
@@ -116,6 +143,71 @@ export default function Dashboard() {
       </div>
 
       {error ? <p className="mt-4 text-sm text-coral">{error}</p> : null}
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold">Inbox</h2>
+        <p className="mt-1 text-sm text-ink/60">Incoming pledges for {org.name}. Accepting updates received quantities.</p>
+        {inbox.length === 0 ? (
+          <p className="mt-3 text-sm text-ink/50">No pledges yet.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {inbox.map((match) => (
+              <div key={match.id} className="card p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-teal">
+                      <span className="capitalize">{match.status}</span> · {match.score}% match
+                    </p>
+                    <p className="mt-1 font-medium">{match.donation?.description}</p>
+                    <p className="mt-1 text-sm text-ink/55">
+                      {match.donation?.donor_name || "Guest"} · {match.donation?.location}
+                    </p>
+                    <ul className="mt-2 text-sm text-ink/70">
+                      {(match.donation?.items || []).map((item) => (
+                        <li key={item.id || item.item_name}>
+                          {item.quantity} × {item.item_name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {match.status === "pledged" ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busyId === match.id}
+                          onClick={() => onInboxAction(match, "accept")}
+                          className="rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === match.id}
+                          onClick={() => onInboxAction(match, "decline")}
+                          className="rounded-lg border border-ink/10 px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                        >
+                          Decline
+                        </button>
+                      </>
+                    ) : null}
+                    {match.status === "accepted" ? (
+                      <button
+                        type="button"
+                        disabled={busyId === match.id}
+                        onClick={() => onInboxAction(match, "deliver")}
+                        className="rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        Mark delivered
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="mt-8 overflow-x-auto card">
         <table className="w-full min-w-[640px] text-left text-sm">

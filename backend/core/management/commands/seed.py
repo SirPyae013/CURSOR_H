@@ -194,6 +194,10 @@ class Command(BaseCommand):
             bright.owner = demo
             bright.save(update_fields=["owner"])
 
+        Organization.objects.filter(
+            name__in=[row["name"] for row in ORGS if row["name"] != "Bright Future Center"]
+        ).update(owner=None)
+
         self.stdout.write(
             self.style.SUCCESS(f"Demo receiver: {DEMO_EMAIL} / {DEMO_PASSWORD}")
         )

@@ -80,12 +80,24 @@ export function getStats() {
   return request("/api/stats/");
 }
 
-export function getOrganizations() {
-  return request("/api/organizations/");
+export function getOrganizations(params = {}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set("q", params.q);
+  if (params.location) query.set("location", params.location);
+  if (params.category) query.set("category", params.category);
+  const suffix = query.toString() ? `?${query}` : "";
+  return request(`/api/organizations/${suffix}`);
 }
 
 export function getOrganization(id) {
   return request(`/api/organizations/${id}/`);
+}
+
+export function extractDonationItems(payload) {
+  return request("/api/donations/extract/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function analyzeDonation(payload) {
@@ -95,8 +107,47 @@ export function analyzeDonation(payload) {
   });
 }
 
-export function getDonationMatches(id) {
-  return request(`/api/donations/${id}/matches/`);
+export function getDonationMatches(id, params = {}) {
+  const query = new URLSearchParams();
+  if (params.org) query.set("org", params.org);
+  const suffix = query.toString() ? `?${query}` : "";
+  return request(`/api/donations/${id}/matches/${suffix}`);
+}
+
+export function pledgeMatch(id) {
+  return request(`/api/matches/${id}/pledge/`, { method: "POST" });
+}
+
+export function acceptMatch(id) {
+  return request(`/api/matches/${id}/accept/`, { method: "POST" });
+}
+
+export function declineMatch(id) {
+  return request(`/api/matches/${id}/decline/`, { method: "POST" });
+}
+
+export function deliverMatch(id) {
+  return request(`/api/matches/${id}/deliver/`, { method: "POST" });
+}
+
+export function getInboxMatches() {
+  return request("/api/organizations/me/matches/");
+}
+
+export function claimOrganization(id) {
+  return request(`/api/organizations/${id}/claim/`, { method: "POST" });
+}
+
+export function getNotifications() {
+  return request("/api/notifications/");
+}
+
+export function markNotificationRead(id) {
+  return request(`/api/notifications/${id}/read/`, { method: "POST" });
+}
+
+export function markAllNotificationsRead() {
+  return request("/api/notifications/read-all/", { method: "POST" });
 }
 
 export function createNeed(orgId, payload) {

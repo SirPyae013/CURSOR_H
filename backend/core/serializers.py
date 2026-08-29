@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Donation, DonationItem, Need, Organization
+from .models import Donation, DonationItem, Need, Notification, Organization
 
 User = get_user_model()
 
@@ -29,6 +29,7 @@ class NeedSerializer(serializers.ModelSerializer):
 
 class OrganizationSerializer(serializers.ModelSerializer):
     needs = NeedSerializer(many=True, read_only=True)
+    has_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -41,8 +42,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "contact_phone",
             "image_url",
             "needs",
+            "has_owner",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "has_owner"]
+
+    def get_has_owner(self, org):
+        return org.owner_id is not None
 
 
 class OrganizationSummarySerializer(serializers.ModelSerializer):
@@ -75,8 +80,15 @@ class DonationItemSerializer(serializers.ModelSerializer):
 class DonationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Donation
-        fields = ["id", "description", "location", "created_at", "donor"]
-        read_only_fields = ["id", "created_at", "donor"]
+        fields = ["id", "description", "location", "status", "created_at", "donor"]
+        read_only_fields = ["id", "status", "created_at", "donor"]
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["id", "message", "link", "read", "created_at"]
+        read_only_fields = ["id", "message", "link", "read", "created_at"]
 
 
 class UserSerializer(serializers.ModelSerializer):

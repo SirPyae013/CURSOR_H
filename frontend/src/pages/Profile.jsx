@@ -118,10 +118,16 @@ export default function Profile() {
               className="card block p-5 hover:ring-1 hover:ring-teal/30"
             >
               <p className="text-sm text-ink/50">
-                {new Date(donation.created_at).toLocaleDateString()} · {donation.location}
+                {new Date(donation.created_at).toLocaleDateString()} · {donation.location} ·{" "}
+                <span className="font-semibold capitalize text-ink/70">{donation.status || "open"}</span>
               </p>
               <p className="mt-1 font-medium">{donation.description}</p>
-              {donation.top_match ? (
+              {donation.chosen_match ? (
+                <p className="mt-2 text-sm text-teal">
+                  {donation.chosen_match.status === "pledged" ? "Pledged to" : "Matched with"}{" "}
+                  {donation.chosen_match.organization.name} ({donation.chosen_match.score}%)
+                </p>
+              ) : donation.top_match ? (
                 <p className="mt-2 text-sm text-teal">
                   Best match: {donation.top_match.organization.name} ({donation.top_match.score}%)
                 </p>

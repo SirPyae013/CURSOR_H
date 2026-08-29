@@ -33,13 +33,16 @@ export default function Home() {
           <Link to="/organizations" className="rounded-lg border border-ink/10 bg-white px-6 py-3 font-semibold hover:border-teal">
             Find organizations
           </Link>
+        </div>
+        <p className="mt-4 text-sm text-ink/55">
+          Represent a school or shelter?{" "}
           <Link
             to={hasOrganization ? "/dashboard" : "/organization/setup"}
-            className="rounded-lg px-6 py-3 font-semibold text-teal hover:underline"
+            className="font-semibold text-teal hover:underline"
           >
             For organizations
           </Link>
-        </div>
+        </p>
         <div className="mt-12 grid gap-4 sm:grid-cols-3">
           <Stat value={stats.donations} label="Donations matched" />
           <Stat value={stats.organizations} label="Organizations" />

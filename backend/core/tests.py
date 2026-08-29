@@ -1,10 +1,13 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from core.ai import fallback_extract
 from core.matching import score_organization
-from core.models import Donation, Need, Organization
+from core.models import Donation, Match, Need, Notification, Organization
 
 User = get_user_model()
 
@@ -178,3 +181,235 @@ class AuthAndOwnershipTests(TestCase):
         mine = self.client.get("/api/organizations/me/")
         self.assertEqual(mine.status_code, 200)
         self.assertEqual(mine.data["name"], "New Shelter")
+
+
+class MatchLoopTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            email="owner@org.mm",
+            password="password12",
+            first_name="Org",
+            last_name="Owner",
+            is_donor=True,
+            is_receiver=True,
+        )
+        self.donor = User.objects.create_user(
+            email="donor@mail.mm",
+            password="password12",
+            first_name="Ada",
+            is_donor=True,
+            is_receiver=False,
+        )
+        self.other = User.objects.create_user(
+            email="other@mail.mm",
+            password="password12",
+            first_name="Other",
+            is_donor=True,
+            is_receiver=False,
+        )
+        self.claimer = User.objects.create_user(
+            email="claimer@mail.mm",
+            password="password12",
+            first_name="Claim",
+            is_donor=True,
+            is_receiver=True,
+        )
+        self.org = Organization.objects.create(
+            owner=self.owner,
+            name="Owned Org",
+            description="Demo",
+            location="Mandalay",
+            contact_email="owner@org.mm",
+        )
+        self.need = Need.objects.create(
+            organization=self.org,
+            item_name="Blankets",
+            category="blankets",
+            quantity_needed=10,
+            quantity_received=0,
+            urgency="high",
+        )
+        self.unowned = Organization.objects.create(
+            name="Open Shelter",
+            description="Waiting for a steward",
+            location="Yangon",
+            contact_email="open@shelter.mm",
+        )
+        Need.objects.create(
+            organization=self.unowned,
+            item_name="Rice",
+            category="food",
+            quantity_needed=20,
+            urgency="medium",
+        )
+
+    def _login(self, email):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"email": email, "password": "password12"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data['access']}")
+        return response.data
+
+    def _analyze(self, description="I have 5 blankets", location="Mandalay"):
+        response = self.client.post(
+            "/api/donations/analyze/",
+            {"description": description, "location": location},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.data
+
+    def _match_for_org(self, payload, org=None):
+        org = org or self.org
+        return next(m for m in payload["matches"] if m["organization"]["id"] == org.id)
+
+    def test_extract_does_not_create_donation(self):
+        before = Donation.objects.count()
+        response = self.client.post(
+            "/api/donations/extract/",
+            {"description": "I have 5 blankets"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["items"])
+        self.assertEqual(Donation.objects.count(), before)
+
+    def test_analyze_accepts_supplied_items(self):
+        self._login("donor@mail.mm")
+        response = self.client.post(
+            "/api/donations/analyze/",
+            {
+                "description": "custom list",
+                "location": "Mandalay",
+                "items": [
+                    {"item_name": "Blankets", "category": "blankets", "quantity": 5},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["items"][0]["item_name"], "Blankets")
+        self.assertEqual(response.data["items"][0]["quantity"], 5)
+
+    def test_guest_cannot_pledge(self):
+        analyzed = self._analyze()
+        match = self._match_for_org(analyzed)
+        response = self.client.post(f"/api/matches/{match['id']}/pledge/", format="json")
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_after_guest_donate_can_pledge(self):
+        analyzed = self._analyze()
+        match = self._match_for_org(analyzed)
+        self._login("donor@mail.mm")
+        pledged = self.client.post(f"/api/matches/{match['id']}/pledge/", format="json")
+        self.assertEqual(pledged.status_code, 200)
+        donation = Donation.objects.get(pk=analyzed["donation"]["id"])
+        self.assertEqual(donation.donor_id, self.donor.id)
+        self.assertEqual(donation.status, "pledged")
+
+    def test_donor_can_pledge_and_switch_before_accept(self):
+        self._login("donor@mail.mm")
+        analyzed = self._analyze()
+        first = analyzed["matches"][0]
+        second = analyzed["matches"][1]
+        pledged = self.client.post(f"/api/matches/{first['id']}/pledge/", format="json")
+        self.assertEqual(pledged.status_code, 200)
+        self.assertEqual(pledged.data["status"], "pledged")
+        donation = Donation.objects.get(pk=analyzed["donation"]["id"])
+        self.assertEqual(donation.status, "pledged")
+        switched = self.client.post(f"/api/matches/{second['id']}/pledge/", format="json")
+        self.assertEqual(switched.status_code, 200)
+        self.assertEqual(switched.data["status"], "pledged")
+        self.assertEqual(Match.objects.get(pk=first["id"]).status, "suggested")
+        self.assertEqual(Match.objects.get(pk=second["id"]).status, "pledged")
+        owner_notes = Notification.objects.filter(user=self.owner)
+        self.assertTrue(owner_notes.exists())
+
+    def test_inbox_is_owner_only(self):
+        self._login("donor@mail.mm")
+        analyzed = self._analyze()
+        match = self._match_for_org(analyzed)
+        self.client.post(f"/api/matches/{match['id']}/pledge/", format="json")
+        denied = self.client.get("/api/organizations/me/matches/")
+        self.assertEqual(denied.status_code, 403)
+        self._login("owner@org.mm")
+        inbox = self.client.get("/api/organizations/me/matches/")
+        self.assertEqual(inbox.status_code, 200)
+        self.assertEqual(len(inbox.data), 1)
+        self.assertEqual(inbox.data[0]["status"], "pledged")
+        self.assertEqual(inbox.data[0]["donation"]["description"], "I have 5 blankets")
+
+    def test_accept_increments_quantity_once(self):
+        self._login("donor@mail.mm")
+        analyzed = self._analyze()
+        match = self._match_for_org(analyzed)
+        self.client.post(f"/api/matches/{match['id']}/pledge/", format="json")
+        self._login("other@mail.mm")
+        forbidden = self.client.post(f"/api/matches/{match['id']}/accept/", format="json")
+        self.assertEqual(forbidden.status_code, 403)
+        self._login("owner@org.mm")
+        accepted = self.client.post(f"/api/matches/{match['id']}/accept/", format="json")
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted.data["status"], "accepted")
+        self.need.refresh_from_db()
+        self.assertEqual(self.need.quantity_received, 5)
+        again = self.client.post(f"/api/matches/{match['id']}/accept/", format="json")
+        self.assertEqual(again.status_code, 200)
+        self.need.refresh_from_db()
+        self.assertEqual(self.need.quantity_received, 5)
+        donation = Donation.objects.get(pk=analyzed["donation"]["id"])
+        self.assertEqual(donation.status, "accepted")
+        self.assertTrue(Notification.objects.filter(user=self.donor).exists())
+
+    def test_claim_unowned_organization(self):
+        self._login("donor@mail.mm")
+        denied = self.client.post(f"/api/organizations/{self.unowned.id}/claim/", format="json")
+        self.assertEqual(denied.status_code, 403)
+        self._login("claimer@mail.mm")
+        claimed = self.client.post(f"/api/organizations/{self.unowned.id}/claim/", format="json")
+        self.assertEqual(claimed.status_code, 200)
+        self.unowned.refresh_from_db()
+        self.assertEqual(self.unowned.owner_id, self.claimer.id)
+        owned = self.client.post(f"/api/organizations/{self.org.id}/claim/", format="json")
+        self.assertEqual(owned.status_code, 400)
+
+    def test_matches_are_locked_for_other_users(self):
+        self._login("donor@mail.mm")
+        analyzed = self._analyze()
+        donation_id = analyzed["donation"]["id"]
+        allowed = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(allowed.status_code, 200)
+        self._login("other@mail.mm")
+        locked = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(locked.status_code, 403)
+        self._login("owner@org.mm")
+        owner_view = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(owner_view.status_code, 200)
+
+    def test_signed_in_user_can_open_recent_guest_donation(self):
+        analyzed = self._analyze()
+        donation_id = analyzed["donation"]["id"]
+        self._login("donor@mail.mm")
+        response = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_guest_matches_expire_after_two_hours(self):
+        analyzed = self._analyze()
+        donation_id = analyzed["donation"]["id"]
+        fresh = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(fresh.status_code, 200)
+        Donation.objects.filter(pk=donation_id).update(
+            created_at=timezone.now() - timedelta(hours=3)
+        )
+        expired = self.client.get(f"/api/donations/{donation_id}/matches/")
+        self.assertEqual(expired.status_code, 403)
+
+    def test_organizations_filter_by_query(self):
+        response = self.client.get("/api/organizations/", {"location": "Yangon", "category": "food"})
+        self.assertEqual(response.status_code, 200)
+        names = [org["name"] for org in response.data]
+        self.assertEqual(names, ["Open Shelter"])

@@ -95,6 +95,7 @@ def score_organization(donation_items, org, donation_location):
                 "item_name": item["item_name"],
                 "status": status,
                 "need_name": best_need.item_name if best_need and best_score > 0 else None,
+                "need_id": best_need.id if best_need and best_score > 0 else None,
                 "score": round(best_score, 2),
             }
         )

@@ -29,7 +29,13 @@ MATCH_STATUSES = [
     ("delivered", "Delivered"),
 ]
 
-DONATION_STATUSES = MATCH_STATUSES
+DONATION_STATUSES = [
+    ("open", "Open"),
+    ("pledged", "Pledged"),
+    ("accepted", "Accepted"),
+    ("declined", "Declined"),
+    ("delivered", "Delivered"),
+]
 
 
 class UserManager(BaseUserManager):
@@ -145,6 +151,7 @@ class Donation(models.Model):
     )
     description = models.TextField()
     location = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=DONATION_STATUSES, default="open")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -175,6 +182,7 @@ class Match(models.Model):
     score = models.IntegerField()
     reason = models.TextField()
     breakdown = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=MATCH_STATUSES, default="suggested")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -182,3 +190,21 @@ class Match(models.Model):
 
     def __str__(self):
         return f"{self.score}% {self.organization.name}"
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="notifications",
+        on_delete=models.CASCADE,
+    )
+    message = models.CharField(max_length=300)
+    link = models.CharField(max_length=200, blank=True)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.message
