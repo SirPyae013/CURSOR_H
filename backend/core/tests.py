@@ -111,7 +111,7 @@ class AuthAndOwnershipTests(TestCase):
             "/api/auth/register/",
             {
                 "email": "new@mail.mm",
-                "password": "password12",
+                "password": "TrailGarden84",
                 "name": "New Donor",
                 "location": "Yangon",
             },
@@ -120,6 +120,100 @@ class AuthAndOwnershipTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["user"]["roles"], ["donor"])
         self.assertTrue(response.data["access"])
+
+    def test_register_rejects_weak_passwords(self):
+        cases = [
+            {
+                "email": "short@mail.mm",
+                "password": "abc12",
+                "name": "Ada Cole",
+            },
+            {
+                "email": "common@mail.mm",
+                "password": "password",
+                "name": "Ada Cole",
+            },
+            {
+                "email": "digits@mail.mm",
+                "password": "12345678",
+                "name": "Ada Cole",
+            },
+            {
+                "email": "same@mail.mm",
+                "password": "same@mail.mm",
+                "name": "Ada Cole",
+            },
+            {
+                "email": "named@mail.mm",
+                "password": "Ada Cole",
+                "name": "Ada Cole",
+            },
+        ]
+        for payload in cases:
+            response = self.client.post("/api/auth/register/", payload, format="json")
+            self.assertEqual(response.status_code, 400, payload)
+            self.assertIn("password", response.data)
+
+    def test_check_email_availability_and_typos(self):
+        fresh = self.client.get("/api/auth/check-email/", {"email": "fresh@mail.mm"})
+        self.assertEqual(fresh.status_code, 200)
+        self.assertTrue(fresh.data["valid"])
+        self.assertTrue(fresh.data["available"])
+        self.assertIsNone(fresh.data["suggestion"])
+
+        taken = self.client.get("/api/auth/check-email/", {"email": "owner@org.mm"})
+        self.assertTrue(taken.data["valid"])
+        self.assertFalse(taken.data["available"])
+
+        invalid = self.client.get("/api/auth/check-email/", {"email": "not-an-email"})
+        self.assertFalse(invalid.data["valid"])
+        self.assertFalse(invalid.data["available"])
+
+        gmail = self.client.get("/api/auth/check-email/", {"email": "ada@gmial.com"})
+        self.assertEqual(gmail.data["suggestion"], "ada@gmail.com")
+        yahoo = self.client.get("/api/auth/check-email/", {"email": "ada@yaho.com"})
+        self.assertEqual(yahoo.data["suggestion"], "ada@yahoo.com")
+
+    def test_org_name_can_change_only_once(self):
+        self._login("owner@org.mm")
+        first = self.client.patch(
+            "/api/organizations/me/",
+            {"name": "Renamed Org"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.data["name"], "Renamed Org")
+        self.assertEqual(first.data["name_change_count"], 1)
+
+        second = self.client.patch(
+            "/api/organizations/me/",
+            {"name": "Third Name"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 400)
+        self.org.refresh_from_db()
+        self.assertEqual(self.org.name, "Renamed Org")
+        self.assertEqual(self.org.name_change_count, 1)
+
+        same = self.client.patch(
+            "/api/organizations/me/",
+            {"name": "Renamed Org", "description": "Still the same name"},
+            format="json",
+        )
+        self.assertEqual(same.status_code, 200)
+        self.assertEqual(same.data["name_change_count"], 1)
+
+    def test_org_address_and_image_serialize(self):
+        self.org.address = "42 26th Street"
+        self.org.image_url = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800"
+        self.org.save(update_fields=["address", "image_url"])
+        response = self.client.get(f"/api/organizations/{self.org.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["address"], "42 26th Street")
+        self.assertEqual(response.data["image_url"], self.org.image_url)
+        self.assertIn("maps.google.com", response.data["map_embed_url"])
+        self.assertIn("26th", response.data["map_embed_url"])
+        self.assertIn("Mandalay", response.data["map_embed_url"])
 
     def test_guest_can_donate(self):
         response = self.client.post(
@@ -178,9 +272,11 @@ class AuthAndOwnershipTests(TestCase):
             format="json",
         )
         self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data["name_change_count"], 0)
         mine = self.client.get("/api/organizations/me/")
         self.assertEqual(mine.status_code, 200)
         self.assertEqual(mine.data["name"], "New Shelter")
+        self.assertEqual(mine.data["name_change_count"], 0)
 
 
 class MatchLoopTests(TestCase):

@@ -117,6 +117,9 @@ class Organization(models.Model):
     contact_email = models.EmailField()
     contact_phone = models.CharField(max_length=50, blank=True)
     image_url = models.URLField(blank=True)
+    image = models.ImageField(upload_to="organizations/", blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True)
+    name_change_count = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
         return self.name

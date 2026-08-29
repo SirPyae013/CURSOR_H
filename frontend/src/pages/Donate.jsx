@@ -4,8 +4,21 @@ import { analyzeDonation, extractDonationItems, getOrganization } from "../api.j
 import { useAuth } from "../AuthContext.jsx";
 import AnalyzeOverlay from "../components/AnalyzeOverlay.jsx";
 
-const DEMO =
-  "I have 20 children's shirts, 10 middle-school textbooks, and 15 notebooks.";
+const EXAMPLES = [
+  {
+    label: "Mandalay shirts & textbooks",
+    text: "I have 20 children's shirts, 10 middle-school textbooks, and 15 notebooks.",
+  },
+  {
+    label: "Yangon blankets",
+    text: "I can donate 12 warm blankets and 8 adult jackets in Yangon.",
+  },
+  {
+    label: "School supplies",
+    text: "A box of 40 notebooks, 20 pencil cases, and 15 children's shoes.",
+  },
+];
+const DESC_LIMIT = 800;
 const CITIES = ["Mandalay", "Yangon", "Naypyidaw"];
 const CATEGORIES = [
   "clothing",
@@ -29,7 +42,7 @@ export default function Donate() {
   const [searchParams] = useSearchParams();
   const orgId = searchParams.get("org");
   const { isAuthenticated, user } = useAuth();
-  const [description, setDescription] = useState(DEMO);
+  const [description, setDescription] = useState("");
   const [location, setLocation] = useState(user?.location || "Mandalay");
   const [targetOrg, setTargetOrg] = useState(null);
   const [items, setItems] = useState(null);
@@ -137,14 +150,45 @@ export default function Donate() {
       ) : null}
 
       <form onSubmit={items ? onAnalyze : onExtract} className="card mt-8 p-6 md:p-8">
-        <label className="text-sm font-semibold">Donation description</label>
+        <label className="text-sm font-semibold" htmlFor="donation-description">
+          Donation description
+        </label>
+        <p className="mt-1 text-sm text-ink/55">
+          Include item names, quantities, and who they’re for. We’ll turn this into an editable list
+          before matching.
+        </p>
         <textarea
+          id="donation-description"
           required
-          rows={6}
+          rows={8}
+          maxLength={DESC_LIMIT}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="mt-2 w-full rounded-lg border border-ink/10 bg-cream/40 px-4 py-3 outline-none focus:border-teal"
+          placeholder="e.g. 20 children’s shirts, 10 middle-school textbooks, and a box of notebooks in Mandalay"
+          className="mt-3 min-h-[180px] w-full resize-y rounded-xl border border-ink/10 bg-cream/40 px-4 py-3 text-base leading-relaxed outline-none transition focus:border-teal focus:bg-white focus:ring-2 focus:ring-teal/25"
         />
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-ink/45">Try an example to see the extract flow.</p>
+          <p className={`text-xs tabular-nums ${description.length >= DESC_LIMIT ? "text-coral" : "text-ink/45"}`}>
+            {description.length}/{DESC_LIMIT}
+          </p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {EXAMPLES.map((example) => (
+            <button
+              type="button"
+              key={example.label}
+              onClick={() => setDescription(example.text)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                description === example.text
+                  ? "border-teal bg-teal text-white"
+                  : "border-ink/10 bg-cream text-ink/70 hover:border-teal/40 hover:text-teal"
+              }`}
+            >
+              {example.label}
+            </button>
+          ))}
+        </div>
         <label className="mt-5 block text-sm font-semibold">Your city</label>
         <div className="mt-2 flex flex-wrap gap-2">
           {CITIES.map((city) => (

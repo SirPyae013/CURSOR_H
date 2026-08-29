@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .ai import _normalize_item, explain_match, extract_items, template_reason
+from .emailcheck import check_email_address
 from .matching import score_organization
 from .models import Donation, DonationItem, Match, Need, Notification, Organization
 from .serializers import (
@@ -215,6 +216,11 @@ class RegisterView(APIView):
         return Response(tokens_for_user(user), status=status.HTTP_201_CREATED)
 
 
+class CheckEmailView(APIView):
+    def get(self, request):
+        return Response(check_email_address(request.query_params.get("email", "")))
+
+
 class LoginView(TokenObtainPairView):
     serializer_class = RoleTokenObtainPairSerializer
 
@@ -276,7 +282,7 @@ class MyOrganizationView(APIView):
             return Response({"detail": "Receiver role required."}, status=403)
         if owned_organization(request.user):
             return Response({"detail": "You already have an organization."}, status=400)
-        serializer = OrganizationSerializer(data=request.data)
+        serializer = OrganizationSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         serializer.save(owner=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -287,11 +293,13 @@ class MyOrganizationView(APIView):
         org = owned_organization(request.user)
         if not org:
             return Response({"detail": "No organization yet."}, status=404)
-        serializer = OrganizationSerializer(org, data=request.data, partial=True)
+        serializer = OrganizationSerializer(
+            org, data=request.data, partial=True, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         org = Organization.objects.prefetch_related("needs").get(pk=org.pk)
-        return Response(OrganizationSerializer(org).data)
+        return Response(OrganizationSerializer(org, context={"request": request}).data)
 
 
 class MyOrganizationMatchesView(APIView):
@@ -342,13 +350,35 @@ class MyDonationsView(APIView):
 
 class StatsView(APIView):
     def get(self, request):
-        return Response(
-            {
-                "donations": Donation.objects.count(),
-                "organizations": Organization.objects.count(),
-                "needs": Need.objects.count(),
-            }
-        )
+        payload = {
+            "donations": Donation.objects.count(),
+            "organizations": Organization.objects.count(),
+            "needs": Need.objects.count(),
+        }
+        # #region agent log
+        try:
+            import json
+            import time
+            from pathlib import Path
+
+            Path(r"C:\Users\MSI Bravo\OneDrive\Documents\Django\CURSOR_H\debug-ade5c2.log").open("a", encoding="utf-8").write(
+                json.dumps(
+                    {
+                        "sessionId": "ade5c2",
+                        "runId": "post-fix",
+                        "hypothesisId": "A",
+                        "location": "views.py:StatsView.get",
+                        "message": "stats ok",
+                        "data": payload,
+                        "timestamp": int(time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+        except Exception:
+            pass
+        # #endregion
+        return Response(payload)
 
 
 class OrganizationListView(APIView):

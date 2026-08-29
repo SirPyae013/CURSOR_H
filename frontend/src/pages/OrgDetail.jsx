@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { claimOrganization, getOrganization } from "../api.js";
 import { useAuth } from "../AuthContext.jsx";
+import MapEmbed from "../components/MapEmbed.jsx";
 import NeedList from "../components/NeedList.jsx";
 
 export default function OrgDetail() {
@@ -51,9 +52,17 @@ export default function OrgDetail() {
           }}
         />
       ) : null}
-      <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-teal">{org.location}</p>
+      <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-teal">
+        {org.location}
+        {org.address ? ` · ${org.address}` : ""}
+      </p>
       <h1 className="mt-1 text-3xl font-extrabold">{org.name}</h1>
       <p className="mt-4 text-ink/75">{org.description}</p>
+      {org.map_embed_url ? (
+        <div className="mt-6">
+          <MapEmbed src={org.map_embed_url} title={`${org.name} location`} />
+        </div>
+      ) : null}
       {!org.has_owner ? (
         <p className="mt-3 text-sm text-ink/55">This organization does not have an owner yet.</p>
       ) : null}

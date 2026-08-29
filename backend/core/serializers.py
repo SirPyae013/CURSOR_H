@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .maps import build_map_embed_url
 from .models import Donation, DonationItem, Need, Notification, Organization
 
 User = get_user_model()
@@ -30,6 +32,8 @@ class NeedSerializer(serializers.ModelSerializer):
 class OrganizationSerializer(serializers.ModelSerializer):
     needs = NeedSerializer(many=True, read_only=True)
     has_owner = serializers.SerializerMethodField()
+    map_embed_url = serializers.SerializerMethodField()
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Organization
@@ -38,19 +42,65 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "location",
+            "address",
             "contact_email",
             "contact_phone",
             "image_url",
+            "image",
+            "map_embed_url",
+            "name_change_count",
             "needs",
             "has_owner",
         ]
-        read_only_fields = ["id", "has_owner"]
+        read_only_fields = ["id", "has_owner", "map_embed_url", "name_change_count"]
 
     def get_has_owner(self, org):
         return org.owner_id is not None
 
+    def get_map_embed_url(self, org):
+        return build_map_embed_url(org.address, org.location)
+
+    def _sync_image_url(self, instance):
+        if not instance.image:
+            return instance
+        url = instance.image.url
+        request = self.context.get("request")
+        if request:
+            url = request.build_absolute_uri(url)
+        if instance.image_url != url:
+            instance.image_url = url
+            instance.save(update_fields=["image_url"])
+        return instance
+
+    def create(self, validated_data):
+        image = validated_data.pop("image", None)
+        instance = super().create(validated_data)
+        if image is not None:
+            instance.image = image
+            instance.save(update_fields=["image"])
+            self._sync_image_url(instance)
+        return instance
+
+    def update(self, instance, validated_data):
+        new_name = validated_data.get("name")
+        if new_name is not None and new_name.strip() != instance.name:
+            if instance.name_change_count >= 1:
+                raise serializers.ValidationError(
+                    {"name": "Organization name can only be changed once."}
+                )
+            validated_data["name_change_count"] = instance.name_change_count + 1
+        image = validated_data.pop("image", None)
+        instance = super().update(instance, validated_data)
+        if image is not None:
+            instance.image = image
+            instance.save(update_fields=["image"])
+            self._sync_image_url(instance)
+        return instance
+
 
 class OrganizationSummarySerializer(serializers.ModelSerializer):
+    map_embed_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Organization
         fields = [
@@ -58,10 +108,15 @@ class OrganizationSummarySerializer(serializers.ModelSerializer):
             "name",
             "description",
             "location",
+            "address",
             "contact_email",
             "contact_phone",
             "image_url",
+            "map_embed_url",
         ]
+
+    def get_map_embed_url(self, org):
+        return build_map_embed_url(org.address, org.location)
 
 
 class DonationItemSerializer(serializers.ModelSerializer):
@@ -157,9 +212,29 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError("An account with this email already exists.")
         return email
 
-    def validate_password(self, value):
-        validate_password(value)
-        return value
+    def validate(self, attrs):
+        password = attrs.get("password") or ""
+        email = attrs.get("email") or ""
+        name = (attrs.get("name") or "").strip()
+        errors = []
+        if password and email and password.lower() == email.lower():
+            errors.append("Password cannot be the same as your email.")
+        if password and name and password.lower() == name.lower():
+            errors.append("Password cannot be the same as your name.")
+        parts = name.split(None, 1)
+        user = User(
+            email=email,
+            username=email,
+            first_name=parts[0] if parts else "",
+            last_name=parts[1] if len(parts) > 1 else "",
+        )
+        try:
+            validate_password(password, user)
+        except DjangoValidationError as exc:
+            errors.extend(list(exc.messages))
+        if errors:
+            raise serializers.ValidationError({"password": errors})
+        return attrs
 
     def create(self, validated_data):
         name = validated_data["name"].strip()

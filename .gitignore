@@ -5,6 +5,7 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 backend/.env
+backend/media/
 *.log
 
 # Node

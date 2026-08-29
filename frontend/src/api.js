@@ -49,8 +49,22 @@ async function refreshAccess() {
   return Boolean(data.access);
 }
 
+function orgFormData(payload, file) {
+  const form = new FormData();
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    form.append(key, typeof value === "boolean" ? String(value) : value);
+  });
+  if (file) form.append("image", file);
+  return form;
+}
+
 async function request(path, options = {}, retry = true) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  const headers = { ...(options.headers || {}) };
+  const isForm = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (!isForm && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
   const token = getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -175,6 +189,11 @@ export function registerAccount(payload) {
   });
 }
 
+export function checkEmail(email) {
+  const query = new URLSearchParams({ email: email || "" });
+  return request(`/api/auth/check-email/?${query}`);
+}
+
 export function loginAccount(payload) {
   return request("/api/auth/login/", {
     method: "POST",
@@ -201,17 +220,17 @@ export function getMyOrganization() {
   return request("/api/organizations/me/");
 }
 
-export function createMyOrganization(payload) {
+export function createMyOrganization(payload, file) {
   return request("/api/organizations/me/", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: file ? orgFormData(payload, file) : JSON.stringify(payload),
   });
 }
 
-export function updateMyOrganization(payload) {
+export function updateMyOrganization(payload, file) {
   return request("/api/organizations/me/", {
     method: "PATCH",
-    body: JSON.stringify(payload),
+    body: file ? orgFormData(payload, file) : JSON.stringify(payload),
   });
 }
 

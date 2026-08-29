@@ -129,6 +129,16 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-12">
+      {org.image_url ? (
+        <img
+          src={org.image_url}
+          alt=""
+          className="mb-6 h-44 w-full rounded-lg object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
       <h1 className="text-3xl font-extrabold">Organization dashboard</h1>
       <p className="mt-2 text-ink/65">
         Update live needs so donors can be matched to what {org.name} actually requires right now.
@@ -136,6 +146,7 @@ export default function Dashboard() {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <p className="text-sm font-semibold">
           {org.name} — {org.location}
+          {org.address ? ` · ${org.address}` : ""}
         </p>
         <Link to="/organization/setup" className="text-sm font-semibold text-teal">
           Edit profile
